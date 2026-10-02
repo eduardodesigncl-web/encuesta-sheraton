@@ -5,7 +5,7 @@ const CONFIG = Object.freeze({
   sheetName: "Respuestas de formulario 2",
   refreshMs: 60_000,
   requestTimeoutMs: 18_000,
-  cacheKey: "sheraton-guest-experience-sheet-v1"
+  cacheKey: "sheraton-guest-experience-sheet-v2"
 });
 
 const AREA_DEFS = [
@@ -114,7 +114,8 @@ function fetchGoogleSheetTable() {
       sheet: CONFIG.sheetName,
       headers: "1",
       tqx: `out:json;responseHandler:${callbackName}`,
-      tq: "select * where A is not null"
+      tq: "select * where A is not null",
+      cacheBust: String(Date.now())
     });
     const url = `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/gviz/tq?${params.toString()}`;
     let settled = false;
@@ -171,13 +172,25 @@ function parseGoogleTable(table) {
 function normalizeRecords(headers, rows) {
   const normalizedHeaders = headers.map(normalizeText);
   const findIndex = (...terms) => normalizedHeaders.findIndex(header => terms.every(term => header.includes(normalizeText(term))));
+  const findAnyIndex = candidateGroups => {
+    for (const terms of candidateGroups) {
+      const index = findIndex(...terms);
+      if (index >= 0) return index;
+    }
+    return -1;
+  };
   const indexes = {
     timestamp: findIndex("marca temporal"),
     reason: findIndex("motivo principal"),
     company: findIndex("con quien viajo"),
     nights: findIndex("cuantas noches"),
     bonvoy: findIndex("miembro de marriott bonvoy"),
-    nps: findIndex("que tan probable", "recomiende"),
+    nps: findAnyIndex([
+      ["que tan probable", "recomiende"],
+      ["probabilidad", "recomendar"],
+      ["net promoter score"],
+      ["nps"]
+    ]),
     positiveArea: findIndex("area considera", "destaco mas positivamente"),
     improvementArea: findIndex("area considera", "oportunidad de mejora"),
     special: findIndex("momento", "detalle especial"),
@@ -276,7 +289,7 @@ function summarize(records) {
   const promoters = npsValues.filter(value => value >= 9).length;
   const passives = npsValues.filter(value => value >= 7 && value <= 8).length;
   const detractors = npsValues.filter(value => value <= 6).length;
-  const nps = npsValues.length ? Math.round((promoters - detractors) / npsValues.length * 100) : null;
+  const nps = calculateNpsScore(promoters, detractors, npsValues.length);
 
   const areaStats = AREA_DEFS.map(area => {
     const values = records.map(record => record.areas[area.key]).filter(Number.isFinite);
@@ -342,7 +355,7 @@ function renderOverview(summary) {
   const opportunity = summary.opportunityArea;
   $("#overviewKpis").innerHTML = [
     kpiCard("Muestra activa", integer(summary.total), plural(summary.total, "respuesta procesada", "respuestas procesadas"), "neutral"),
-    kpiCard("Net Promoter Score", signed(summary.nps), npsLabel(summary.nps), npsTone(summary.nps)),
+    kpiCard("Net Promoter Score", signed(summary.nps), npsKpiDetail(summary), npsTone(summary.nps)),
     kpiCard("Satisfacción global", score(summary.satisfaction), "promedio de áreas evaluadas", scoreTone(summary.satisfaction)),
     kpiCard("Tasa de aprobación", percent(summary.approvalRate), "evaluaciones con nota 4 o 5", scoreTone(summary.approvalRate === null ? null : summary.approvalRate / 20)),
     kpiCard("Principal fortaleza", top?.short || "Sin datos", top ? `${score(top.avg)} · ${top.bestMentions} ${plural(top.bestMentions, "mención", "menciones")}` : "Aún sin evaluaciones", "green", true),
@@ -564,7 +577,7 @@ function summarizeGroup(records) {
   return {
     count: records.length,
     satisfaction: average(ratings),
-    nps: npsValues.length ? Math.round((promoters - detractors) / npsValues.length * 100) : null,
+    nps: calculateNpsScore(promoters, detractors, npsValues.length),
     promoters,
     passives,
     detractors,
@@ -657,6 +670,18 @@ function average(values) {
   return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : null;
 }
 
+function calculateNpsScore(promoters, detractors, total) {
+  if (!total) return null;
+  const rawScore = (promoters - detractors) / total * 100;
+  return rawScore < 0 ? -Math.round(Math.abs(rawScore)) : Math.round(rawScore);
+}
+
+function npsKpiDetail(summary) {
+  if (!summary.npsValues.length) return "sin respuestas NPS";
+  const averageScore = average(summary.npsValues);
+  return `${summary.promoters} ${plural(summary.promoters, "promotor", "promotores")} · ${summary.detractors} ${plural(summary.detractors, "detractor", "detractores")} · promedio ${formatNumber(averageScore, 1)}/10`;
+}
+
 function score(value, withUnit = true) { return value === null || value === undefined ? "—" : `${formatNumber(value, 1)}${withUnit ? " / 5" : ""}`; }
 function percent(value) { return value === null || value === undefined ? "—" : `${Math.round(value)}%`; }
 function integer(value) { return new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(value || 0); }
@@ -674,7 +699,7 @@ function scoreTone(value) { return value === null ? "neutral" : value >= 4.3 ? "
 function npsTone(value) { return value === null ? "neutral" : value >= 50 ? "green" : value >= 0 ? "gold" : "red"; }
 function barTone(value) { return value === null ? "" : value >= 4.3 ? "green" : value >= 3.8 ? "gold" : "red"; }
 function heatTone(value) { return value === null ? "mid" : value >= 4.3 ? "high" : value >= 3.8 ? "mid" : "low"; }
-function npsLabel(value) { return value === null ? "sin respuestas NPS" : value >= 50 ? "excelente" : value >= 0 ? "positivo" : "requiere atención"; }
+function npsLabel(value) { return value === null ? "sin respuestas NPS" : value >= 50 ? "excelente" : value > 0 ? "positivo" : value === 0 ? "en equilibrio" : "requiere atención"; }
 function maskContact(value) {
   const text = cleanText(value);
   if (!text) return "";
