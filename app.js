@@ -382,15 +382,92 @@ function renderOverview(summary) {
 function renderNps(summary) {
   const total = summary.npsValues.length;
   const parts = [
-    ["promoter", summary.promoters, "Promotores"],
-    ["passive", summary.passives, "Pasivos"],
-    ["detractor", summary.detractors, "Detractores"]
+    ["promoter", summary.promoters, "Promotores", "Notas 9–10"],
+    ["passive", summary.passives, "Pasivos", "Notas 7–8"],
+    ["detractor", summary.detractors, "Detractores", "Notas 0–6"]
   ];
-  $("#npsBadge").textContent = `${signed(summary.nps)} NPS`;
+  const recommendationRate = total ? summary.promoters / total * 100 : null;
+  $("#npsBadge").textContent = recommendationRate === null ? "— recomienda" : `${Math.round(recommendationRate)}% recomendaría`;
+  renderNpsGauge(summary, recommendationRate);
   $("#npsStack").innerHTML = total
     ? parts.map(([className, count]) => `<span class="${className}" style="width:${count / total * 100}%">${count / total * 100 >= 10 ? Math.round(count / total * 100) + "%" : ""}</span>`).join("")
     : `<span class="muted" style="width:100%;color:#66737e">Sin respuestas NPS</span>`;
-  $("#npsLegend").innerHTML = parts.map(([, count, label]) => `<div><strong>${integer(count)}</strong><span>${label}${total ? ` · ${Math.round(count / total * 100)}%` : ""}</span></div>`).join("");
+  $("#npsLegend").innerHTML = parts.map(([, count, label, range]) => `<div title="${escapeAttr(range)}"><strong>${integer(count)}</strong><span>${label}${total ? ` · ${Math.round(count / total * 100)}%` : ""}</span><small>${range}</small></div>`).join("");
+}
+
+function renderNpsGauge(summary, recommendationRate) {
+  const total = summary.npsValues.length;
+  const scoreValue = summary.nps ?? 0;
+  const clampedScore = Math.max(-100, Math.min(100, scoreValue));
+  const centerX = 180;
+  const centerY = 176;
+  const radius = 137;
+  const needleRadius = 108;
+  const zones = [
+    { from: -100, to: 0, color: "#d52c40", label: "Desfavorable", detail: "De −100 a −1: hay más detractores que promotores." },
+    { from: 0, to: 50, color: "#e49b14", label: "Favorable", detail: "De 0 a 49: existe un balance favorable, todavía con oportunidad de fortalecer la lealtad." },
+    { from: 50, to: 100, color: "#0a8f69", label: "Sólido", detail: "De 50 a 100: la base de promotores es claramente superior." }
+  ];
+  const scoreToAngle = score => 180 - ((score + 100) / 200 * 180);
+  const pointAt = (score, distance = radius) => {
+    const radians = scoreToAngle(score) * Math.PI / 180;
+    return { x: centerX + distance * Math.cos(radians), y: centerY - distance * Math.sin(radians) };
+  };
+  const pathFor = (from, to) => {
+    const points = [];
+    const steps = Math.max(8, Math.ceil((to - from) / 4));
+    for (let index = 0; index <= steps; index += 1) {
+      const score = from + (to - from) * index / steps;
+      const point = pointAt(score);
+      points.push(`${index ? "L" : "M"}${point.x.toFixed(2)},${point.y.toFixed(2)}`);
+    }
+    return points.join(" ");
+  };
+  const needleTip = pointAt(clampedScore, needleRadius);
+  const tickValues = [-100, -50, 0, 50, 100];
+  const interpretation = interpretNps(summary.nps);
+  const root = $("#npsGauge");
+  root.setAttribute("aria-label", summary.nps === null ? "Sin respuestas válidas para calcular NPS" : `Net Promoter Score ${signed(summary.nps)}. ${interpretation.title}.`);
+  root.innerHTML = `<svg viewBox="0 0 360 225" aria-hidden="true">
+    ${zones.map(zone => `<path class="nps-zone" tabindex="0" d="${pathFor(zone.from, zone.to)}" fill="none" stroke="${zone.color}" stroke-width="21" data-zone="${escapeAttr(zone.label)}"><title>${escapeHtml(zone.detail)}</title></path>`).join("")}
+    ${tickValues.map(value => {
+      const outer = pointAt(value, radius + 12);
+      const inner = pointAt(value, radius - 12);
+      const label = pointAt(value, radius - 33);
+      return `<line class="gauge-tick" x1="${outer.x}" y1="${outer.y}" x2="${inner.x}" y2="${inner.y}"/><text class="gauge-label" x="${label.x}" y="${label.y + 4}" text-anchor="middle">${value > 0 ? "+" : ""}${value}</text>`;
+    }).join("")}
+    <text class="gauge-zone-label" x="75" y="76" text-anchor="middle">Desfavorable</text>
+    <text class="gauge-zone-label" x="232" y="48" text-anchor="middle">Favorable</text>
+    <text class="gauge-zone-label" x="315" y="105" text-anchor="middle">Sólido</text>
+    <line class="gauge-needle" x1="${centerX}" y1="${centerY}" x2="${needleTip.x}" y2="${needleTip.y}"/>
+    <circle class="gauge-hub" cx="${centerX}" cy="${centerY}" r="9"/>
+    <text class="gauge-score" x="${centerX}" y="142" text-anchor="middle">${summary.nps === null ? "—" : signed(summary.nps)}</text>
+    <text class="gauge-unit" x="${centerX}" y="158" text-anchor="middle">NPS</text>
+  </svg>`;
+
+  $("#npsInsight").dataset.tone = interpretation.tone;
+  $("#npsInterpretationTitle").textContent = interpretation.title;
+  $("#npsInterpretationText").textContent = interpretation.text;
+  $("#npsRecommendationRate").textContent = recommendationRate === null ? "—" : `${Math.round(recommendationRate)}%`;
+  $("#npsRecommendationCount").textContent = total ? `${summary.promoters} de ${total} ${plural(total, "huésped", "huéspedes")} calificaron con 9 o 10.` : "Notas 9 o 10 sobre el total.";
+
+  const zonePaths = $$(".nps-zone", root);
+  zonePaths.forEach(path => {
+    const highlight = () => zonePaths.forEach(other => other.classList.toggle("is-muted", other !== path));
+    const reset = () => zonePaths.forEach(other => other.classList.remove("is-muted"));
+    path.addEventListener("mouseenter", highlight);
+    path.addEventListener("focus", highlight);
+    path.addEventListener("mouseleave", reset);
+    path.addEventListener("blur", reset);
+  });
+}
+
+function interpretNps(value) {
+  if (value === null || value === undefined) return { tone: "neutral", title: "Sin datos suficientes", text: "Se necesita al menos una respuesta válida de recomendación para calcular el indicador." };
+  if (value < 0) return { tone: "red", title: "Balance desfavorable", text: `Hay aproximadamente ${Math.abs(value)} detractores más que promotores por cada 100 respuestas. Conviene revisar los principales puntos de fricción.` };
+  if (value === 0) return { tone: "amber", title: "Promotores y detractores en equilibrio", text: "La proporción de promotores y detractores es equivalente. El objetivo inmediato es convertir respuestas pasivas en promotoras." };
+  if (value < 50) return { tone: "amber", title: "Balance favorable con oportunidad", text: `Hay aproximadamente ${value} promotores más que detractores por cada 100 respuestas. La experiencia genera recomendación, aunque todavía puede fortalecerse.` };
+  return { tone: "green", title: "Lealtad sólida", text: `Hay aproximadamente ${value} promotores más que detractores por cada 100 respuestas. La recomendación supera ampliamente a la detracción.` };
 }
 
 function renderAreaRanking(areaStats) {

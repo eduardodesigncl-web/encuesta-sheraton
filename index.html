@@ -89,17 +89,33 @@
       <div class="kpi-grid" id="overviewKpis"></div>
 
       <div class="grid two-thirds">
-        <article class="card panel">
+        <article class="card panel nps-panel">
           <div class="panel-heading">
             <div>
               <p class="eyebrow">Lealtad</p>
               <h3>Descomposición del Net Promoter Score</h3>
             </div>
-            <div class="metric-badge" id="npsBadge">— NPS</div>
+            <div class="metric-badge" id="npsBadge">— recomienda</div>
+          </div>
+          <div class="nps-meter-grid">
+            <div class="nps-gauge-shell">
+              <div class="nps-gauge" id="npsGauge" role="img" aria-label="Medidor del Net Promoter Score"></div>
+              <p class="nps-scale-note">Escala NPS: −100 a +100</p>
+            </div>
+            <aside class="nps-insight" id="npsInsight" data-tone="neutral">
+              <p class="eyebrow">Interpretación automática</p>
+              <h4 id="npsInterpretationTitle">Esperando respuestas</h4>
+              <p id="npsInterpretationText">El análisis aparecerá cuando existan respuestas válidas.</p>
+              <div class="recommendation-rate">
+                <span>Tasa de recomendación</span>
+                <strong id="npsRecommendationRate">—</strong>
+                <small id="npsRecommendationCount">Notas 9 o 10 sobre el total</small>
+              </div>
+            </aside>
           </div>
           <div class="nps-stack" id="npsStack" aria-label="Distribución NPS"></div>
           <div class="nps-legend" id="npsLegend"></div>
-          <p class="nps-formula"><strong>Fórmula NPS:</strong> % de promotores (9–10) menos % de detractores (0–6). Las respuestas 7–8 son pasivas y no suman ni restan.</p>
+          <p class="nps-formula"><strong>Cómo se calcula:</strong> % de promotores (notas 9–10) menos % de detractores (notas 0–6). Las notas 7–8 son pasivas y no suman ni restan. Pasa el cursor por las zonas del medidor para ver su significado.</p>
           <div class="trend-block">
             <div class="panel-heading compact">
               <h4>Evolución de satisfacción</h4>

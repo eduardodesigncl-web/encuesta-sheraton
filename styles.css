@@ -113,6 +113,32 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .muted { color: var(--muted); font-size: 11px; }
 .metric-badge { border-radius: 7px; background: var(--gold-soft); color: #75510d; padding: 7px 10px; font-size: 12px; font-weight: 800; white-space: nowrap; }
 
+.nps-meter-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(210px, .65fr); gap: 18px; align-items: stretch; margin-bottom: 16px; }
+.nps-gauge-shell { position: relative; min-width: 0; background: linear-gradient(180deg, #f8fafb 0%, #fff 100%); border: 1px solid #e6ebee; border-radius: 12px; padding: 8px 12px 0; }
+.nps-gauge { width: 100%; min-height: 228px; }
+.nps-gauge svg { width: 100%; height: auto; display: block; overflow: visible; }
+.nps-zone { cursor: help; transition: stroke-width .18s ease, filter .18s ease, opacity .18s ease; outline: none; }
+.nps-zone:hover, .nps-zone:focus { stroke-width: 25; filter: drop-shadow(0 3px 4px rgba(7,24,41,.14)); opacity: 1; }
+.nps-zone.is-muted { opacity: .24; }
+.nps-gauge .gauge-tick { stroke: white; stroke-width: 2; }
+.nps-gauge .gauge-label { fill: #6f7b85; font: 600 10px "DM Sans", sans-serif; }
+.nps-gauge .gauge-score { fill: var(--navy-950); font: 800 42px Manrope, sans-serif; letter-spacing: -.05em; }
+.nps-gauge .gauge-unit { fill: #66747f; font: 700 11px "DM Sans", sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+.nps-gauge .gauge-needle { stroke: var(--navy-800); stroke-width: 4; stroke-linecap: round; animation: drawNeedle .65s ease-out both; }
+.nps-gauge .gauge-hub { fill: var(--navy-800); stroke: white; stroke-width: 4; }
+.nps-gauge .gauge-zone-label { fill: white; font: 800 9px "DM Sans", sans-serif; letter-spacing: .04em; text-transform: uppercase; pointer-events: none; }
+.nps-scale-note { margin: -2px 0 9px; text-align: center; color: var(--muted); font-size: 10px; }
+@keyframes drawNeedle { from { stroke-dasharray: 0 180; } to { stroke-dasharray: 180 0; } }
+.nps-insight { border-radius: 11px; padding: 17px; border: 1px solid #e1e7eb; background: #f5f7f8; display: flex; flex-direction: column; }
+.nps-insight[data-tone="red"] { background: #fff1f2; border-color: #f2c4c9; }
+.nps-insight[data-tone="amber"] { background: #fff8e8; border-color: #efdba4; }
+.nps-insight[data-tone="green"] { background: #eaf8f3; border-color: #bfe6d9; }
+.nps-insight h4 { margin: 8px 0 7px; font: 800 19px/1.2 Manrope, sans-serif; }
+.nps-insight > p:not(.eyebrow) { margin: 0; color: #5d6974; font-size: 12px; line-height: 1.5; }
+.recommendation-rate { margin-top: auto; padding-top: 15px; border-top: 1px solid rgba(75,91,104,.14); display: grid; gap: 2px; }
+.recommendation-rate span { color: #697681; font-size: 10px; text-transform: uppercase; letter-spacing: .07em; font-weight: 800; }
+.recommendation-rate strong { font: 800 30px Manrope, sans-serif; color: var(--navy-950); }
+.recommendation-rate small { color: var(--muted); font-size: 10px; }
 .nps-stack { height: 27px; display: flex; border-radius: 6px; overflow: hidden; background: #edf1f3; }
 .nps-stack > span { min-width: 0; display: grid; place-items: center; color: white; font-size: 10px; font-weight: 800; transition: width .35s ease; }
 .nps-stack .promoter { background: var(--green); }
@@ -122,6 +148,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .nps-legend > div { background: #f3f5f7; border-radius: 7px; padding: 11px; text-align: center; }
 .nps-legend strong { display: block; font: 800 22px Manrope, sans-serif; }
 .nps-legend span { color: var(--muted); font-size: 10px; }
+.nps-legend small { display: block; color: #7a8690; font-size: 9px; margin-top: 3px; }
 .nps-formula { margin: 12px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
 .nps-formula strong { color: var(--ink); }
 .trend-block { margin-top: 18px; padding: 16px; border-radius: 9px; background: #f5f7f8; }
@@ -220,6 +247,7 @@ footer .shell { min-height: 72px; display: flex; align-items: center; justify-co
   .filter-bar { position: static; }
   .filters { flex-wrap: wrap; padding: 10px 0; }
   .gold-button { margin-left: 0; }
+  .nps-meter-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 760px) {
