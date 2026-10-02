@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Dashboard de experiencia de huéspedes conectado a Google Sheets">
+  <title>Sheraton Miramar · Guest Experience Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand-row shell">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">S</div>
+        <div>
+          <p class="eyebrow">Sheraton Miramar Hotel &amp; Convention Center</p>
+          <h1>Guest Experience Intelligence</h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="sync-pill" id="syncPill" data-status="loading" role="status" aria-live="polite">
+          <span class="status-dot"></span>
+          <span id="syncText">Conectando con Google Sheets…</span>
+        </div>
+        <button class="icon-button" id="refreshButton" type="button" title="Actualizar datos" aria-label="Actualizar datos">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5M4 18v-5h5M6.1 8.2A7 7 0 0 1 18.4 6L20 8m-16 8 1.6 2A7 7 0 0 0 17.9 15.8"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <nav class="main-nav shell" aria-label="Secciones del dashboard">
+      <button class="nav-item is-active" type="button" data-view="overview"><span>01</span> Resumen ejecutivo</button>
+      <button class="nav-item" type="button" data-view="areas"><span>02</span> Experiencia &amp; áreas</button>
+      <button class="nav-item" type="button" data-view="segments"><span>03</span> Segmentación</button>
+      <button class="nav-item" type="button" data-view="feedback"><span>04</span> Feedback &amp; seguimiento</button>
+    </nav>
+  </header>
+
+  <section class="filter-bar">
+    <div class="shell filters">
+      <label>Período
+        <select id="periodFilter">
+          <option value="30">Últimos 30 días</option>
+          <option value="90">Últimos 90 días</option>
+          <option value="365">Últimos 12 meses</option>
+          <option value="all">Todo el histórico</option>
+        </select>
+      </label>
+      <label>Motivo
+        <select id="reasonFilter"><option value="all">Todos</option></select>
+      </label>
+      <label>Compañía
+        <select id="companyFilter"><option value="all">Todas</option></select>
+      </label>
+      <label>Noches
+        <select id="nightsFilter"><option value="all">Todas</option></select>
+      </label>
+      <label>Marriott Bonvoy
+        <select id="bonvoyFilter"><option value="all">Todos</option></select>
+      </label>
+      <button class="secondary-button" id="resetFilters" type="button">Restablecer</button>
+      <button class="gold-button" id="exportButton" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+        Exportar PDF
+      </button>
+    </div>
+  </section>
+
+  <main class="shell page-shell">
+    <div class="notice is-hidden" id="notice" role="alert"></div>
+
+    <section class="dashboard-view is-active" data-view-panel="overview">
+      <div class="section-intro card">
+        <div>
+          <p class="eyebrow gold">Panel consolidado en tiempo real</p>
+          <h2>01 Resumen ejecutivo</h2>
+          <p id="overviewSubtitle">Cargando respuestas de la encuesta…</p>
+        </div>
+        <div class="intro-meta">
+          <span>Fuente</span>
+          <strong>Google Forms → Google Sheets</strong>
+          <small id="lastUpdated">Sin actualización todavía</small>
+        </div>
+      </div>
+
+      <div class="kpi-grid" id="overviewKpis"></div>
+
+      <div class="grid two-thirds">
+        <article class="card panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Lealtad</p>
+              <h3>Descomposición del Net Promoter Score</h3>
+            </div>
+            <div class="metric-badge" id="npsBadge">— NPS</div>
+          </div>
+          <div class="nps-stack" id="npsStack" aria-label="Distribución NPS"></div>
+          <div class="nps-legend" id="npsLegend"></div>
+          <div class="trend-block">
+            <div class="panel-heading compact">
+              <h4>Evolución de satisfacción</h4>
+              <span class="muted">Últimos 6 meses con respuestas</span>
+            </div>
+            <div id="trendChart" class="trend-chart"></div>
+          </div>
+        </article>
+
+        <article class="card panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Touchpoints</p>
+              <h3>Experiencia por área operativa</h3>
+            </div>
+            <span class="muted">Escala 1 a 5</span>
+          </div>
+          <div class="area-ranking" id="areaRanking"></div>
+        </article>
+      </div>
+
+      <div class="grid half">
+        <article class="card panel insight-card">
+          <div class="insight-icon" aria-hidden="true">◎</div>
+          <div>
+            <p class="eyebrow gold">Lectura ejecutiva automática</p>
+            <h3 id="executiveInsightTitle">Esperando datos</h3>
+            <p id="executiveInsight">La conclusión se generará a partir de las respuestas filtradas.</p>
+          </div>
+        </article>
+        <article class="card panel contact-summary">
+          <div>
+            <p class="eyebrow danger">Seguimiento</p>
+            <h3><span id="contactCount">0</span> huéspedes solicitaron contacto</h3>
+            <p>Casos marcados por el huésped para respuesta del equipo del hotel.</p>
+          </div>
+          <button class="dark-button" type="button" data-go-view="feedback">Revisar casos</button>
+        </article>
+      </div>
+    </section>
+
+    <section class="dashboard-view" data-view-panel="areas">
+      <div class="section-intro card">
+        <div>
+          <p class="eyebrow gold">Diagnóstico departamental</p>
+          <h2>02 Experiencia &amp; rendimiento por áreas</h2>
+          <p>Comparación de satisfacción, uso y oportunidades de mejora por punto de contacto.</p>
+        </div>
+        <div class="intro-meta"><span>Muestra filtrada</span><strong id="areaSample">0 respuestas</strong></div>
+      </div>
+      <div class="kpi-grid four" id="areaKpis"></div>
+      <article class="card panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow">Matriz maestra</p><h3>Rendimiento operativo por área</h3></div>
+          <span class="muted">Actualizado con cada respuesta nueva</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Área / servicio</th><th>Nota promedio</th><th>Satisfacción 4–5</th><th>Respuestas</th><th>Mejor área</th><th>Área de mejora</th><th>Diagnóstico</th></tr></thead>
+            <tbody id="areaTable"></tbody>
+          </table>
+        </div>
+      </article>
+      <div class="grid half">
+        <article class="card panel">
+          <div class="panel-heading"><div><p class="eyebrow">Prioridad</p><h3>Calificación vs. menciones de mejora</h3></div></div>
+          <div id="priorityMatrix" class="priority-matrix"></div>
+        </article>
+        <article class="card panel">
+          <div class="panel-heading"><div><p class="eyebrow">Fortalezas</p><h3>Áreas destacadas por huéspedes</h3></div></div>
+          <div id="strengthList" class="horizontal-list"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="dashboard-view" data-view-panel="segments">
+      <div class="section-intro card">
+        <div>
+          <p class="eyebrow gold">Cohortes de huéspedes</p>
+          <h2>03 Segmentación multidimensional</h2>
+          <p>Lealtad, satisfacción y recomendación según el perfil de viaje.</p>
+        </div>
+        <div class="intro-meta"><span>Muestra filtrada</span><strong id="segmentSample">0 huéspedes</strong></div>
+      </div>
+      <article class="card panel loyalty-panel">
+        <div class="panel-heading"><div><p class="eyebrow">Programa de fidelización</p><h3>Diferencial Marriott Bonvoy</h3></div><span class="metric-badge" id="loyaltyGap">—</span></div>
+        <div class="grid half" id="loyaltyCards"></div>
+      </article>
+      <div class="grid four segment-grid" id="segmentCards"></div>
+      <article class="card panel">
+        <div class="panel-heading"><div><p class="eyebrow">Cruce analítico</p><h3>Segmentos principales vs. áreas de servicio</h3></div><span class="muted">Puntajes promedio</span></div>
+        <div class="table-wrap"><table class="data-table heatmap-table" id="segmentTable"></table></div>
+      </article>
+    </section>
+
+    <section class="dashboard-view" data-view-panel="feedback">
+      <div class="section-intro card">
+        <div>
+          <p class="eyebrow gold">Datos mínimos y privacidad</p>
+          <h2>04 Feedback cualitativo &amp; seguimiento</h2>
+          <p>Comentarios abiertos, solicitudes de contacto y señales de servicio prioritarias.</p>
+        </div>
+        <div class="intro-meta"><span>Información sensible</span><strong>Contacto enmascarado</strong></div>
+      </div>
+      <div class="kpi-grid four" id="feedbackKpis"></div>
+      <div class="grid half">
+        <article class="card panel">
+          <div class="panel-heading"><div><p class="eyebrow">Voz del huésped</p><h3>Temas de comentarios</h3></div></div>
+          <div id="themeList" class="horizontal-list"></div>
+        </article>
+        <article class="card panel">
+          <div class="panel-heading"><div><p class="eyebrow">Reconocimiento</p><h3>Áreas destacadas</h3></div></div>
+          <div id="positiveMentionList" class="horizontal-list"></div>
+        </article>
+      </div>
+      <article class="card panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow danger">Acción requerida</p><h3>Huéspedes que solicitaron contacto</h3></div>
+          <span class="metric-badge" id="priorityBadge">0 casos</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table"><thead><tr><th>Fecha</th><th>Perfil</th><th>NPS / señal</th><th>Comentario</th><th>Contacto</th></tr></thead><tbody id="contactTable"></tbody></table>
+        </div>
+      </article>
+      <article class="card panel">
+        <div class="panel-heading"><div><p class="eyebrow">Explorador cualitativo</p><h3>Comentarios recientes</h3></div><span class="muted" id="commentCount">0 comentarios</span></div>
+        <div class="feedback-grid" id="feedbackGrid"></div>
+      </article>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell"><span>Sheraton Miramar Hotel &amp; Convention Center</span><span>Fuente viva: Google Sheets · actualización automática cada 60 segundos</span></div>
+  </footer>
+
+  <noscript>Este dashboard necesita JavaScript para leer y procesar la hoja de cálculo.</noscript>
+  <script src="app.js" defer></script>
+</body>
+</html>
